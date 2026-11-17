@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 03 · BJT DC Bias Web App</title>
+<style>
+  :root {
+    --paper: #f2f6f9;
+    --ink: #17344b;
+    --navy: #103658;
+    --teal: #07766e;
+    --mint: #e8f6f2;
+    --line: #cfdde7;
+    --muted: #4a6477;
+    --danger: #8a2c14;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.65 "Noto Sans Thai", Tahoma, Arial, sans-serif;
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 28px 0 22px;
+    border-bottom: 5px solid #27ac9c;
+  }
+  .shell { max-width: 860px; margin: auto; padding: 0 22px; }
+  h1 { margin: 0 0 6px; font-size: clamp(1.35rem, 3.4vw, 1.9rem); }
+  header p { margin: 0; color: #ccebe9; font-size: .95rem; }
+  main { padding: 22px 0 40px; display: grid; gap: 18px; }
+  .panel {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+  h2 { margin: 0 0 14px; font-size: 1.1rem; color: var(--navy); }
+  .mode-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .field { display: grid; gap: 5px; }
+  .field label, .mode-form label { font-size: .85rem; font-weight: 650; color: var(--muted); }
+  select, input {
+    font: inherit;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    min-width: 0;
+  }
+  select:focus-visible, input:focus-visible, button:focus-visible {
+    outline: 3px solid var(--teal);
+    outline-offset: 2px;
+  }
+  input { width: 100%; }
+  button {
+    font: inherit;
+    font-weight: 650;
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 18px;
+    cursor: pointer;
+    background: var(--teal);
+    color: #fff;
+  }
+  button.secondary { background: var(--navy); }
+  button:hover { filter: brightness(1.08); }
+  .hint { margin: 12px 0 0; font-size: .87rem; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  fieldset { border: 0; margin: 0; padding: 0; }
+  legend { font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+  .divider-line { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+  .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; }
+  .errors {
+    border-left: 4px solid var(--danger);
+    background: #fdf1ee;
+    color: var(--danger);
+    border-radius: 6px;
+    padding: 12px 15px;
+    margin: 0 0 16px;
+  }
+  .errors ul { margin: 0; padding-left: 1.2em; }
+  .warn {
+    border-left: 4px solid #b26a12;
+    background: #fff6e8;
+    color: #7a4408;
+    border-radius: 6px;
+    padding: 12px 15px;
+    margin: 0 0 16px;
+  }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { width: 40%; color: var(--muted); font-weight: 650; background: #f7fafc; }
+  td { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .result-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; margin-bottom: 14px; }
+  .result-head h2 { margin: 0; }
+  .badge {
+    font-size: .8rem;
+    padding: 3px 11px;
+    border-radius: 999px;
+    background: var(--mint);
+    color: #0d5c55;
+    font-weight: 650;
+  }
+  footer { color: var(--muted); font-size: .82rem; padding-bottom: 28px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="shell">
+    <h1>Lab 03 · BJT DC Bias Web App</h1>
+    <p>ENG29 2121 — เลือกวงจรไบอัสสามแบบ แล้วคำนวณ DC Operating Point ด้วย Python</p>
+  </div>
+</header>
+
+<main class="shell">
+  <section class="panel">
+    <h2>เลือกวงจรไบอัส</h2>
+    <form class="mode-form" method="get" action="/">
+      <div class="field">
+        <label for="mode">โหมดวงจร</label>
+        <select id="mode" name="mode">
+          {% for key, info in modes.items() %}
+          <option value="{{ key }}"{% if key == mode %} selected{% endif %}>{{ info.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="secondary">เปลี่ยนโหมด</button>
+    </form>
+    {% if mode_info %}
+    <p class="hint">{{ mode_info.summary }}</p>
+    {% endif %}
+  </section>
+
+  {% if errors %}
+  <section class="errors" role="alert" aria-live="assertive">
+    <strong>ข้อมูลไม่ถูกต้อง</strong>
+    <ul>
+      {% for message in errors %}
+      <li>{{ message }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <h2>กรอกค่าของ {{ mode_info.label }}</h2>
+    <form method="post" action="/">
+      <input type="hidden" name="mode" value="{{ mode }}">
+
+      <fieldset>
+        <legend>ค่าที่ใช้ร่วมกันทุกโหมด</legend>
+        <div class="grid">
+          {% for field in common_fields %}
+          <div class="field">
+            <label for="{{ field.key }}">
+              {{ field.label }}{% if field.unit %} ({{ field.unit }}){% endif %}
+            </label>
+            <input
+              id="{{ field.key }}"
+              name="{{ field.key }}"
+              type="number"
+              step="any"
+              inputmode="decimal"
+              value="{{ values.get(field.key, field.value) }}"
+            >
+          </div>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <hr class="divider-line">
+
+      <fieldset>
+        <legend>ตัวต้านทานของวงจร {{ mode_info.label }}</legend>
+        <div class="grid">
+          {% for field in mode_info.resistors %}
+          <div class="field">
+            <label for="{{ field.key }}">{{ field.label }} (kΩ)</label>
+            <input
+              id="{{ field.key }}"
+              name="{{ field.key }}"
+              type="number"
+              step="any"
+              inputmode="decimal"
+              value="{{ values.get(field.key, '') }}"
+            >
+          </div>
+          {% endfor %}
+        </div>
+        <p class="hint">
+          ฟอร์มใช้หน่วย kΩ — 1 MΩ = 1,000 kΩ · ระบบแปลงเป็น Ω ครั้งเดียวก่อนคำนวณ
+        </p>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" name="action" value="calculate">คำนวณ</button>
+      </div>
+    </form>
+  </section>
+
+  {% if result %}
+  <section class="panel" id="result" aria-live="polite">
+    <div class="result-head">
+      <h2>ผลการคำนวณ</h2>
+      <span class="badge" id="result-mode">{{ mode_info.label }}</span>
+    </div>
+
+    {% if result.warning %}
+    <p class="warn" id="result-warning">{{ result.warning }}</p>
+    {% endif %}
+
+    <table>
+      <tbody>
+        <tr><th scope="row">IB</th><td id="ib-value">{{ "%.2f"|format(result.ib_ua) }} µA</td></tr>
+        <tr><th scope="row">IC</th><td id="ic-value">{{ "%.3f"|format(result.ic_ma) }} mA</td></tr>
+        <tr><th scope="row">IE</th><td id="ie-value">{{ "%.3f"|format(result.ie_ma) }} mA</td></tr>
+        <tr><th scope="row">VB</th><td id="vb-value">{{ "%.3f"|format(result.vb_v) }} V</td></tr>
+        <tr><th scope="row">VE</th><td id="ve-value">{{ "%.3f"|format(result.ve_v) }} V</td></tr>
+        <tr><th scope="row">VC</th><td id="vc-value">{{ "%.3f"|format(result.vc_v) }} V</td></tr>
+        <tr><th scope="row">VCE</th><td id="vce-value">{{ "%.3f"|format(result.vce_v) }} V</td></tr>
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+</main>
+
+<footer class="shell">
+  แบบจำลอง DC โดยประมาณ (β และ VBE คงที่ในย่าน Forward Active) · หน่วย Ohm และ Ampere ภายในโมดูลคำนวณ
+</footer>
+</body>
+</html>
